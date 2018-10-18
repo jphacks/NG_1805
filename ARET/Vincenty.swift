@@ -7,13 +7,14 @@
 //
 import Foundation
 import CoreLocation
+import ARKit
 
 extension Double {
     static func radian(_ deg:Double) -> Double {
         return Double.pi / 180.0 * deg
     }
     var radian:Double {
-        return Double.pi / 180.0 * self
+        return self * Double.pi / 180.0
     }
     
     static func degree(_ deg:Double) -> Double {
@@ -27,29 +28,24 @@ class Vincentry{
     let a: Double!
     let f: Double!
     let b: Double!
+    var destination:CLLocation!
     var position:CLLocation!
+    var positionFlag:Bool
+    var distance:Double
     
-    init(position:CLLocation){
+    init(destination:CLLocation){
         /// Radius at equator [m]
-        self.a = 6378137.0
+        self.a = 6378137.06
         /// Flattening of the ellipsoid
           self.f = 1 / 298.257223563
         /// Radius at the poles [m]
         self.b = 6356752.314245
-        /// Reduced latitude
-        self.position = position
-      
+        /// 目的地
+        self.destination = destination
+        self.positionFlag = true
+        self.distance = 0
     }
-    init(){
-        /// Radius at equator [m]
-        self.a = 6378137.0
-        /// Flattening of the ellipsoid
-        self.f = 1 / 298.257223563
-        /// Radius at the poles [m]
-        self.b = 6356752.314245
-        /// Reduced latitude
-        
-    }
+
 
     func u(of latitude: Double) -> Double {
         
@@ -57,13 +53,30 @@ class Vincentry{
     }
 
 // MARK: - Internal
+    //自分の位置を更新ついでに
+    public func updatemyPosition(newposition:CLLocation) -> (SCNVector3,Bool){
+        
+        self.position = newposition
+        if(positionFlag)
+        {
+            positionFlag = false
+            return (self.transformDestination(),true)
+        }
+        return (self.transformDestination(),false)
+    }
     
-    public func updatePosition(newposition:CLLocation){
+    public func updatemyDestination(newdestination:CLLocation){
+        
+        self.destination = newdestination
+        self.positionFlag = true
+    }
     
-    self.position = newposition
+    public func getdistance()->Double
+    {
+        return self.distance
     }
     //Vincentyの逆　こっちを使う
-public func calcurateDistanceAndAzimuths( location2: CLLocation) -> (s: Double, a1: Double, a2: Double) {
+public func calcurateDistanceAndAzimuths(location2: CLLocation) -> (s: Double, a1: Double, a2: Double) {
     
     let lat1 = self.position.coordinate.latitude.radian
     let lat2 = location2.coordinate.latitude.radian
@@ -96,7 +109,7 @@ public func calcurateDistanceAndAzimuths( location2: CLLocation) -> (s: Double, 
         let sin2sigma = pow(cosU2 * sinLambda, 2.0) + pow(cosU1 * sinU2 - sinU1 * cosU2 * cosLambda, 2.0)
         sinSigma = sqrt(sin2sigma)
         cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda
-        sigma = atan2(sinSigma, cosSigma)
+        sigma = atan(sinSigma/cosSigma)
         let sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma
         cos2alpha = 1 - pow(sinAlpha, 2.0)
         if cos2alpha == 0 {
@@ -123,46 +136,41 @@ public func calcurateDistanceAndAzimuths( location2: CLLocation) -> (s: Double, 
     return (s: s, a1: a1.degree, a2: a2.degree)
 }
 
-public func calcurateNextPointLocation( s: Double, a1: Double) -> (location: CLLocationCoordinate2D, a2: Double) {
     
-    let latRad = self.position.coordinate.latitude.radian
-    let lonRad = self.position.coordinate.longitude.radian
-    let a1Rad = a1.radian
-    
-    let u1 = u(of: latRad)
-    let sigma1 = atan2(tan(u1), cos(a1Rad))
-    let sinalp = cos(u1) * sin(a1Rad)
-    let cos2alp = 1 - pow(sinalp, 2.0)
-    let u22 = cos2alp * (pow(a, 2.0) - pow(b, 2.0)) / pow(b, 2.0)
-    let A = 1 + u22 / 16384 * (4096 + u22 * (u22 * (320 - 175 * u22) - 768))
-    let B = u22 / 1024 * (256 + u22 * (u22 * (74 - 47 * u22) - 128))
-    
-    var sigma = s / b / A
-    var lastSigma = sigma - 100
-    
-    var dm2: Double = 0.0
-    
-    while abs(lastSigma - sigma) > pow(10, -9.0) {
+     func rotateAroundY(with matrix: matrix_float4x4, for degrees: Float) -> matrix_float4x4 {
         
-        lastSigma = sigma
-        dm2 = 2 * sigma1 + sigma
-        let x = cos(sigma) * (2 * pow(cos(dm2), 2.0) - 1) - B / 6 * cos(dm2) * (4 * pow(sin(dm2), 2.0) - 3) * (4 * pow(cos(dm2), 2.0) - 3)
-        let dsigma = B * sin(sigma) * (cos(dm2) + B / 4 * x)
-        sigma = s / b / A + dsigma
+        var matrix: matrix_float4x4 = matrix
+        
+        matrix.columns.0.x = cos(degrees)
+        matrix.columns.0.z = -sin(degrees)
+        
+        matrix.columns.2.x = sin(degrees)
+        matrix.columns.2.z = cos(degrees)
+        return matrix.inverse
     }
     
-    let x = sin(u1) * cos(sigma) + cos(u1) * sin(sigma) * cos(a1Rad)
-    let y = (1 - f) * sqrt(pow(sinalp, 2.0) + pow(sin(u1) * sin(sigma) - cos(u1) * cos(sigma) * cos(a1Rad), 2.0))
-    let lambda = atan2(sin(sigma) * sin(a1Rad), cos(u1) * cos(sigma) - cos(u1) * sin(sigma) * cos(a1Rad))
-    let C = f / 16 * cos2alp * (4 + f * (4 - 3 * cos2alp))
-    let z = cos(dm2) + C * cos(sigma) * (2 * pow(cos(dm2), 2.0) - 1)
-    let dL = lambda - (1 - C) * f * sinalp * (sigma + C * sin(sigma) * z)
+    func translationMatrix(with matrix: matrix_float4x4, for translation: vector_float4) -> matrix_float4x4 {
+        
+        var matrix = matrix
+        matrix.columns.3 = translation
+        return matrix
+    }
     
-    // Result
-    let latitude = atan2(x, y)
-    let longitude = lonRad + dL
-    let a2 = atan2(sinalp, cos(u1) * cos(sigma) * cos(a1) - sin(u1) * sin(sigma))
-    return (location: CLLocationCoordinate2D(latitude: latitude.degree, longitude: longitude.degree), a2: a2.degree)
-}
+    func transformMatrix(for matrix: simd_float4x4) -> simd_float4x4 {
+        
+        let (s: distance, a1: bearing, a2: _) = self.calcurateDistanceAndAzimuths(location2: self.destination)
+        self.distance = distance
+        let position = vector_float4(0.0, 0.0, Float(-distance), 0.0)
+        let translationMatrix = self.translationMatrix(with: matrix_identity_float4x4, for: position)
+        let rotationMatrix = self.rotateAroundY(with: matrix_identity_float4x4, for: Float(bearing.radian))
+        let transformMatrix = simd_mul(rotationMatrix, translationMatrix)
+        return simd_mul(matrix, transformMatrix)
+    }
+    //目的地のローカル座標を求める（緯度経度から変換）
+    func transformDestination() -> SCNVector3{
+        let res:simd_float4x4 =  self.transformMatrix(for: matrix_identity_float4x4)
+        let newPosition = SCNMatrix4(res)
+        return SCNVector3Make(newPosition.m41,newPosition.m42 , newPosition.m43)
+    }
 
 }

@@ -17,10 +17,13 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     @IBOutlet var sceneView: ARSCNView!
     var locationManager: CLLocationManager!
     let label:UILabel! = UILabel()
+    let labe2:UILabel! = UILabel()
+    let sphere = SCNSphere(radius: 0.03)
+    var nodeA :SCNNode!
    
     //デバック用　名古屋駅の位置情報
     var nagoya_station:CLLocation!
-    
+    var V:Vincentry!
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -28,49 +31,79 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         sceneView.delegate = self
         
         // Show statistics such as fps and timing information
-        sceneView.showsStatistics = true
+        sceneView.showsStatistics = false
+        
         
         // Create a new scene
-        let scene = SCNScene(named: "art.scnassets/ship.scn")!
+       
+      
         
         // Set the scene to the view
-        sceneView.scene = scene
         
         locationManager = CLLocationManager() // インスタンスの生成
         locationManager.delegate = self // CLLocationManagerDelegateプロトコルを実装するクラスを指定する
-        locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-         locationManager.activityType = .fitness
-        locationManager.distanceFilter = 5.0
-        
+       
     
         label.text = "ラベルのテキスト"
         label.center = self.view.center
         label.numberOfLines = 0
         label.frame = CGRect(x:150, y:200, width:300, height:400)
-        
         self.view.addSubview(label)
+        
+        labe2.text = ""
+        labe2.center = self.view.center
+        labe2.numberOfLines = 0
+        labe2.frame = CGRect(x:150, y:400, width:300, height:400)
+        self.view.addSubview(labe2)
+        
+        
+        nodeA = SCNNode(geometry: sphere)
+        nodeA.position = SCNVector3(0,0,0)
+        sceneView.scene.rootNode.addChildNode(nodeA)
         
         
         
         //デバック用　名古屋駅の位置情報
         
-         nagoya_station = CLLocation(latitude: 35.157459, longitude: 136.924870)
+         nagoya_station = CLLocation(latitude: 35.15633909391446, longitude: 136.92472466888248)
+         V = Vincentry(destination:nagoya_station)
         
     }
+    
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
+  //     configuration.worldAlignment = .gravityAndHeading
         
-        // z: North and South, x: East and West, y: parallel to gravity
-       configuration.worldAlignment = .gravityAndHeading
-        
+        func session(_ session: ARSession, didFailWithError error: Error) {
+
+            switch error._code {
+            case 102:
+                configuration.worldAlignment = .gravity
+                labe2.text = "garavity"
+                restartSession()
+            default:
+                configuration.worldAlignment = .gravityAndHeading
+                labe2.text = "garavityAndHeading"
+                restartSession()
+            }
+        }
+
+        func restartSession() {
+
+            self.sceneView.session.pause()
+
+            self.sceneView.session.run(configuration, options: [
+                .resetTracking,
+                .removeExistingAnchors])
+        }
+       
         // Run the view's session
         sceneView.session.run(configuration)
 
-      
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -131,24 +164,31 @@ extension ViewController: CLLocationManagerDelegate {
             break
         case .authorizedWhenInUse:
             print("起動時のみ、位置情報の取得が許可されています。")
-            // 位置情報取得の開始処理
+            //位置情報取得の開始処理
+            locationManager.distanceFilter = 1.0
             locationManager.startUpdatingLocation()
             break
         }
     }
+    
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        let V:Vincentry = Vincentry()
+        //ここで目的地を指定
+        var  Flag:Bool
+        var Position:SCNVector3
         for location in locations {
-            V.updatePosition(newposition: location)
-             //print("緯度:\(location.coordinate.latitude) 経度:\(location.coordinate.longitude) 取得時刻:\(location.timestamp.description)")
-           let res = V.calcurateDistanceAndAzimuths(location2: nagoya_station)
-           print("距離:\(res.s) 経度:\(res.a1) 経度:\(res.a2)")
+            (Position ,Flag) = V.updatemyPosition(newposition: location)
+            //目的地は変更不可
+            if(Flag){
+                nodeA.position = Position
+            }
             label.text = """
-            距離:\(res.s)
-            経度:\(res.a1)
-            経度:\(res.a2)
+            距離:\(V.distance)
+            
+
             """
             
+           
         }
     }
+    
 }
