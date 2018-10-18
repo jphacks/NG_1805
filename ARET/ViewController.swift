@@ -17,9 +17,10 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     @IBOutlet var sceneView: ARSCNView!
     var locationManager: CLLocationManager!
     let label:UILabel! = UILabel()
-    let labe2:UILabel! = UILabel()
     let sphere = SCNSphere(radius: 0.03)
+    let pyramid = SCNPyramid(width: 0.3, height: 0.3, length: 0.5)
     var nodeA :SCNNode!
+    
    
     //デバック用　名古屋駅の位置情報
     var nagoya_station:CLLocation!
@@ -50,15 +51,11 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         label.frame = CGRect(x:150, y:200, width:300, height:400)
         self.view.addSubview(label)
         
-        labe2.text = ""
-        labe2.center = self.view.center
-        labe2.numberOfLines = 0
-        labe2.frame = CGRect(x:150, y:400, width:300, height:400)
-        self.view.addSubview(labe2)
         
         
         nodeA = SCNNode(geometry: sphere)
         nodeA.position = SCNVector3(0,0,0)
+        
         sceneView.scene.rootNode.addChildNode(nodeA)
         
         
@@ -76,30 +73,30 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
-  //     configuration.worldAlignment = .gravityAndHeading
+        //configuration.worldAlignment = .gravityAndHeading
         
-        func session(_ session: ARSession, didFailWithError error: Error) {
-
-            switch error._code {
-            case 102:
-                configuration.worldAlignment = .gravity
-                labe2.text = "garavity"
-                restartSession()
-            default:
-                configuration.worldAlignment = .gravityAndHeading
-                labe2.text = "garavityAndHeading"
-                restartSession()
-            }
-        }
-
-        func restartSession() {
-
-            self.sceneView.session.pause()
-
-            self.sceneView.session.run(configuration, options: [
-                .resetTracking,
-                .removeExistingAnchors])
-        }
+//        func session(_ session: ARSession, didFailWithError error: Error) {
+//
+//            switch error._code {
+//            case 102:
+//                configuration.worldAlignment = .gravity
+//                labe2.text = "garavity"
+//                restartSession()
+//            default:
+//                configuration.worldAlignment = .gravityAndHeading
+//                labe2.text = "garavityAndHeading"
+//                restartSession()
+//            }
+//        }
+//
+//        func restartSession() {
+//
+//            self.sceneView.session.pause()
+//
+//            self.sceneView.session.run(configuration, options: [
+//                .resetTracking,
+//                .removeExistingAnchors])
+//        }
        
         // Run the view's session
         sceneView.session.run(configuration)
@@ -186,9 +183,30 @@ extension ViewController: CLLocationManagerDelegate {
             
 
             """
-            
+           self.createPyramid(Position: nodeA.position)
+           sceneView.scene.rootNode.addChildNode(nodeA)
            
         }
     }
+    //目的地までものを飛ばす
+    func createPyramid(Position:SCNVector3)
+    {
+        let nodeB = SCNNode(geometry:pyramid )
+        nodeB.position = SCNVector3(0,0,0)
+        if let material = nodeB.geometry?.firstMaterial {
+            material.diffuse.contents = UIColor.red
+            material.specular.contents = UIColor.red
+        }
+        
+        let action = SCNAction.moveBy(x: CGFloat(Position.x), y:CGFloat(Position.y) , z:CGFloat(Position.z), duration:V.distance)
+        nodeB.runAction(
+            SCNAction.sequence([
+                action,
+                SCNAction.removeFromParentNode()
+                ])
+        )
+    sceneView.scene.rootNode.addChildNode(nodeB)
+    }
+    
     
 }
