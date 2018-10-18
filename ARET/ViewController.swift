@@ -18,7 +18,7 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     var locationManager: CLLocationManager!
     let label:UILabel! = UILabel()
     let sphere = SCNSphere(radius: 0.03)
-    let pyramid = SCNPyramid(width: 0.3, height: 0.3, length: 0.5)
+    let pyramid = SCNPyramid(width: 0.1, height: 0.1, length: 0.1)
     var nodeA :SCNNode!
     
    
@@ -192,7 +192,8 @@ extension ViewController: CLLocationManagerDelegate {
     func createPyramid(Position:SCNVector3)
     {
         let nodeB = SCNNode(geometry:pyramid )
-        nodeB.position = SCNVector3(0,0,0)
+        
+        nodeB.position = SCNVector3(0,0,-0.2)
         if let material = nodeB.geometry?.firstMaterial {
             material.diffuse.contents = UIColor.red
             material.specular.contents = UIColor.red
