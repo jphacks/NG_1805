@@ -48,7 +48,8 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         label.text = "ラベルのテキスト"
         label.center = self.view.center
         label.numberOfLines = 0
-        label.frame = CGRect(x:150, y:200, width:300, height:400)
+        label.frame = CGRect(x:300, y:0, width:300, height:400)
+        label.font = UIFont.boldSystemFont(ofSize: 90)
         self.view.addSubview(label)
         
         
@@ -178,12 +179,21 @@ extension ViewController: CLLocationManagerDelegate {
             if(Flag){
                 nodeA.position = Position
             }
-            label.text = """
-            距離:\(V.distance)
+            let text = """
+            \(floor(V.distance) / 100)m
             
 
             """
-           self.createPyramid(Position: nodeA.position)
+            // ラベルの設定
+            let textAttributes: [NSAttributedString.Key : Any] = [
+                .foregroundColor : UIColor(hue: 0.68, saturation: 0.49, brightness: 0.60, alpha: 1.0),
+                .strokeColor : UIColor.white,
+                .strokeWidth : -4.0
+            ]
+            label.attributedText = NSAttributedString(string: text, attributes: textAttributes)
+            
+//           self.createPyramid(Position: nodeA.position)
+            self.directionArrow(Position: nodeA.position)
            sceneView.scene.rootNode.addChildNode(nodeA)
            
         }
@@ -208,6 +218,34 @@ extension ViewController: CLLocationManagerDelegate {
         )
     sceneView.scene.rootNode.addChildNode(nodeB)
     }
-    
+    //目的地まで矢印を飛ばす
+    func directionArrow(Position:SCNVector3)
+    {
+        let plane = SCNPlane(width: 0.8, height: 0.8)
+//        plane.firstMaterial?.diffuse.contents = UIColor.black
+        
+        let arrow = SCNNode(geometry: plane)
+        arrow.eulerAngles = SCNVector3(-90 * (Float.pi / 180), -90 * (Float.pi / 180), 0)
+        
+        let position = SCNVector3(x: 0, y: -0.3, z: -1) // 偏差のベクトルを生成する
+        if let camera = sceneView.pointOfView { // カメラを取得
+            arrow.position = camera.convertPosition(position, to: nil) // カメラ位置からの偏差で求めた位置をノードの位置とする
+        }
+        
+        if let material = arrow.geometry?.firstMaterial {
+            material.diffuse.contents = UIImage(named: "direction")
+//            material.specular.contents = UIColor.red
+        }
+        
+        let action = SCNAction.moveBy(x: CGFloat(Position.x), y:CGFloat(Position.y) , z:CGFloat(Position.z), duration:V.distance)
+        arrow.runAction(
+            SCNAction.sequence([
+                action,
+                SCNAction.removeFromParentNode()
+                ])
+        )
+        sceneView.scene.rootNode.addChildNode(arrow)
+    }
+
     
 }
